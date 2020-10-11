@@ -11,9 +11,9 @@ import db
 import chio
 
 
-def checksum(file, hash_factory=hashlib.sha1, chunksize=4096, hex=True):
+def checksum(file, hash=hashlib.sha1, chunksize=4096, hex=True):
     file = Path(file)
-    h = hash_factory()
+    h = hash()
     with file.open('rb') as f:
         for chunk in iter(lambda: f.read(chunksize * h.block_size), b''):
             h.update(chunk)
