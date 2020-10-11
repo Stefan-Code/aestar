@@ -28,14 +28,30 @@ def parse_chio_status_line(line):
 def parse_chio_status(lines):
     return {r.pop('name'): r for r in [parse_chio_status_line(line) for line in lines if line]}
 
-def status(device=None):
-    status_options = ['-a']
-    options = []
+
+def chio_options(device=None):
+    options = ['chio']
     if device:
         options += ['-f', device]
-    result = subprocess.run(['chio'] + options + ['status'] + status_options, capture_output=True)
+
+
+def status(device=None):
+    status_options = ['-a']
+    result = subprocess.run(chio_options(device) + ['status'] + status_options, capture_output=True)
     result.check_returncode()
     return parse_chio_status(result.stdout.decode('utf-8').split('\n'))
+
+
+def load(volume, device=None, drive_index=0):
+    result = subprocess.run(chio_options(device) + ['move', 'voltag', volume, 'drive', drive_index],
+                            capture_output=True)
+    result.check_returncode()
+
+
+def unload(device=None, drive_index=0):
+    result = subprocess.run(chio_options(device) + ['return', 'drive', drive_index], capture_output=True)
+    result.check_returncode()
+
 
 if __name__ == '__main__':
     print(status())
