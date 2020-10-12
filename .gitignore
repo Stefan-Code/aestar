@@ -140,5 +140,6 @@ cython_debug/
 *.tar
 *.tar.aes
 *.sqlite
+*.img
 
 .idea/
