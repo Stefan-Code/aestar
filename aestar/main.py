@@ -1,26 +1,16 @@
 #!/usr/bin/env python3
-import os
 import hashlib
+import os
 import tarfile
-import click
-import sqlite3
-
 from pathlib import Path
-from Crypto.Cipher import AES
-import db
-import chio
+
+import click
+
+from . import chio
+from . import db
 
 
-def checksum(file, hash=hashlib.sha1, chunksize=4096, hex=True):
-    file = Path(file)
-    h = hash()
-    with file.open('rb') as f:
-        for chunk in iter(lambda: f.read(chunksize * h.block_size), b''):
-            h.update(chunk)
-    if hex:
-        return h.hexdigest()
-    else:
-        return h.digest()
+
 
 
 def get_import_volumes(chio_status, exclude_prefix='CLN'):
