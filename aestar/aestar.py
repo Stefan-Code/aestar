@@ -97,10 +97,10 @@ class AESFile:
 
 
 class AESTarFile:
-    def __init__(self, file, passphrase, mode='wb', bufsize=131072, compression=None):
+    def __init__(self, file, passphrase, mode='wb', bufsize=131072, compression=None, sync=False):
         if mode != 'wb':
             raise NotImplementedError('Mode must be "wb"')
-        self.aesfile = AESFile(file, mode=mode, passphrase=passphrase, bufsize=bufsize, sync=False, pad=True)
+        self.aesfile = AESFile(file, mode=mode, passphrase=passphrase, bufsize=bufsize, sync=sync, pad=True)
         self.tarfile = tarfile.open(fileobj=self.aesfile, mode=f'w|{compression if compression else ""}',
                                     bufsize=bufsize)
         self.pending_files = []

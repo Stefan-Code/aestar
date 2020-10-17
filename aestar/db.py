@@ -1,13 +1,17 @@
 import sqlite3
+import logging
+
 stat_fields = ['mode', 'dev', 'nlink', 'uid', 'gid', 'size', 'atime', 'mtime', 'ctime']
 
-import logging
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
+
 
 def create_tables(cursor):
     stat = [f"st_{field} INTEGER" for field in stat_fields]
     delim = ',\n'
+    # Reminder: all foreign keys have to be primary keys in the parent table
+    # Foreign key support has to be explicitly enabled with PRAGMA
     sql = f"""
     CREATE TABLE IF NOT EXISTS files (
         id      INTEGER,
@@ -45,7 +49,8 @@ def create_tables(cursor):
         num_bytes	INTEGER,
         timestamp	INTEGER,
         timestamp_completed	INTEGER,
-        FOREIGN KEY(parent_id) REFERENCES backup(id)
+        FOREIGN KEY(parent_id) REFERENCES backup(id),
+        PRIMARY KEY(id)
    );
     CREATE TABLE IF NOT EXISTS backed_up_files (
         file_id	INTEGER NOT NULL,
@@ -54,6 +59,7 @@ def create_tables(cursor):
         FOREIGN KEY(file_id) REFERENCES files(id),
         PRIMARY KEY(file_id, partial_backup_id)
     );
+    PRAGMA foreign_keys = ON;
     """
     logger.debug(f'Creating DB tables if they do not already exist. Using stat fields: {", ".join(stat_fields)}.')
     cursor.executescript(sql)
@@ -75,8 +81,7 @@ def insert(data, table, cursor, cmd='INSERT'):
     cursor.execute(insert_str, values)
 
 
-def select(data, table, cursor, selection='*'):
+def select(data, table, cursor, selection='*', chain_operator='AND'):
     keys, values = zip(*data.items())
-    operator = 'AND'
-    select_str = "SELECT {} FROM {} WHERE {}".format(selection, table, f' {operator} '.join(f'{key}=?' for key in keys))
+    select_str = "SELECT {} FROM {} WHERE {}".format(selection, table, f' {chain_operator} '.join(f'{key}=?' for key in keys))
     return cursor.execute(select_str, values)

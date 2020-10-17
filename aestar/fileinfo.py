@@ -1,6 +1,8 @@
 import hashlib
 import os
 import stat
+from multiprocessing import Process
+from pathlib import Path
 
 from . import db
 
@@ -35,3 +37,22 @@ class FileInfo:
             info_dict['sha1'] = checksum(path, hex=False)
         info_dict['is_dir'] = int(stat.S_ISDIR(stat_result.st_mode))
         return cls(info_dict)
+
+
+class FileProcessor(Process):
+    def __init__(self, queue, path, pattern='*'):
+        super().__init__()
+        self.name = f'FileProcessor for {path}'
+        self.queue = queue
+        self.path = Path(path)
+        self.pattern = pattern
+
+    def run(self):
+        for item in self.path.rglob(self.pattern):
+            try:
+                self.queue.put(FileInfo.from_file(item))
+            except Exception as e:
+                e.filepath = item
+                self.queue.put(e)
+        # Sentinel value
+        self.queue.put(None)
