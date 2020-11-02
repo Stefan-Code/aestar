@@ -105,6 +105,7 @@ class AESTarFile:
                                     bufsize=bufsize)
         self.pending_files = []
         self.num_files = 0  # includes directories and special files
+        self.previous_pending_length = 0
 
     def add(self, name, arcname=None):
         # always treat a file as pending after it has been added, therefore call purge first
@@ -129,7 +130,7 @@ class AESTarFile:
         """
         Update self.pending_files to the current state. files that remain pending after the purge are not
         written to disk entirely.
-        :return: index of the last non-pending file (in added files, starting with 1)
+        :return:
         """
         # i is the index in self.pending_files, stats[0] is the index (starting with 1)
         # of the file in all added files so far
@@ -178,6 +179,7 @@ class AESTarFile:
         unless tarfile would be extended to handle logical EOM retries (every other write fails with ENOSPC).
         """
         self.tarfile.closed = True
+        self.tarfile.fileobj.closed = True
         self.aesfile.fileobj.close()
 
     def __enter__(self):
@@ -195,7 +197,6 @@ class AESTarFile:
 class PendingQueue:
     def __init__(self, queue):
         self.queue = queue
-        self.counter = 0
         self.restore_queue = deque()
         self.restore = False
 
@@ -204,13 +205,21 @@ class PendingQueue:
             try:
                 item = self.restore_queue.pop()
             except IndexError:
-                print('Restore finished!')
+                logger.debug('Restore finished!')
                 self.restore = False
                 item = self.queue.get()
         else:
             item = self.queue.get()
+        # we are intentionally feeding the item back into the restore queue even when restoring
+        # it is removed by confirm() eventually
         self.restore_queue.appendleft(item)
         return item
 
     def confirm(self, num=1):
-        return [self.restore_queue.pop() for i in range(num)]
+        return [self.restore_queue.pop() for _i in range(num)]
+
+    def qsize(self):
+        return self.queue.qsize() + len(self.restore_queue)
+
+    def __len__(self):
+        return self.qsize()
