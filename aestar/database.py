@@ -1,5 +1,6 @@
 import sqlite3
 import logging
+from datetime import datetime
 
 stat_fields = ['mode', 'dev', 'nlink', 'uid', 'gid', 'size', 'atime', 'mtime', 'ctime']
 
@@ -99,7 +100,30 @@ def select(data, table, cursor, selection='*', chain_operator='AND'):
     logger.debug(f'Selecting: {select_str} with values {values}')
     return cursor.execute(select_str, values)
 
+
 class BackupDatabase:
     def __init__(self, db_file):
         self.connection = init_db(db_file)
 
+    def insert(self, data, table, **kwargs):
+        cursor = self.connection.cursor()
+        insert(data, table, cursor, **kwargs)
+        return cursor.lastrowid
+
+    def select(self, data, table, **kwargs):
+        cursor = self.connection.cursor()
+        return select(data, table, cursor, **kwargs)
+
+    def create_backup(self, path, cursor, level='full'):
+        data = {'path': path.as_posix(),
+                'level': level,
+                'timestamp': int(datetime.timestamp(datetime.now()))
+                }
+        return self.insert(data, 'backup')
+
+    def create_partial_backup(self, parent_id, volume, **kwargs):
+        kwargs.update({'parent_id': parent_id,
+                       'volume': volume,
+                       'timestamp': int(datetime.timestamp(datetime.now()))
+                       })
+        return self.insert(kwargs, 'partial_backup')

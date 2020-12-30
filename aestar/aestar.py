@@ -12,8 +12,35 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
+class TapeFile:
+    def __init__(self, file, mode, bufsize=None):
+        """
+        File object that abstracts a tape drive (or any other file) and raises zero byte writes as an ENOSPC error.
+        :param file: file location
+        :param mode: file opening mode
+        :param bufsize: explicit size of the underlying buffer
+        """
+        self.bufsize = bufsize
+        self.fileobj = open(file, mode=mode, buffering=bufsize)
+
+    def close(self):
+        self.fileobj.close()
+
+    def write(self, buf):
+        result = self.fileobj.write(buf)
+        if result == 0:
+            # convert a write return 0 to ENOSPC to detect end of tape
+            raise IOError(errno.ENOSPC, os.strerror(errno.ENOSPC))
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+
 class AESFile:
-    def __init__(self, file, mode, passphrase, bufsize=512, sync=True, pad=True):
+    def __init__(self, passphrase, file=None, fileobj=None, mode='wb', bufsize=512, sync=True, pad=True):
         """
         Python file object for transparent AES encryption compatible with `aespipe` in single-key mode.
         This class is closely suited for the requirements of the tarfile library and not
@@ -56,7 +83,12 @@ class AESFile:
         # actual file we are writing to
         # turn buffering off, as we are writing buffered chunks anyways
         # note that the buffer is explicitly flushed after each write()
-        self.fileobj = open(file, mode=mode, buffering=self.bufsize)
+        if fileobj:
+            self.fileobj = fileobj
+        elif file and fileobj:
+            raise ValueError('Arguments "file" and "fileobj" are exclusive.')
+        elif file:
+            self.fileobj = open(file, mode=mode, buffering=self.bufsize)
         logger.debug(f'opened {file} with buffer size {self.bufsize} for writing AES encrypted data.')
 
     def _next_sector(self):
@@ -71,7 +103,7 @@ class AESFile:
         else:
             write_buffer = buffer
         for i in range(len(write_buffer) // self.SECTOR_SIZE):
-            self.fileobj.write(self._cipher.encrypt(write_buffer[self.SECTOR_SIZE * i: self.SECTOR_SIZE * (i + 1)]))
+            result = self.fileobj.write(self._cipher.encrypt(write_buffer[self.SECTOR_SIZE * i: self.SECTOR_SIZE * (i + 1)]))
             self._next_sector()
         # flush the buffer explicitly to catch write errors earlier
         self.fileobj.flush()
