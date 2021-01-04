@@ -9,7 +9,7 @@ logger.addHandler(logging.NullHandler())
 
 
 def create_tables(cursor):
-    stat = [f"st_{field} INTEGER" for field in stat_fields]
+    stats = [f"st_{field} INTEGER" for field in stat_fields]
     delim = ',\n'
     # Reminder: all foreign keys have to be primary keys in the parent table
     # Foreign key support has to be explicitly enabled with PRAGMA
@@ -22,7 +22,7 @@ def create_tables(cursor):
         st_ino	INTEGER NOT NULL,
         sha1	BLOB,
         is_dir INTEGER,
-        {delim.join(stat)},
+        {delim.join(stats)},
         PRIMARY KEY(id),
         UNIQUE(path, st_ino, sha1)
     );
@@ -94,9 +94,9 @@ def insert(data, table, cursor, cmd='INSERT'):
         raise
 
 
-def select(data, table, cursor, selection='*', chain_operator='AND'):
+def select(data, table, cursor, selection='*', chain_operator='AND', suffix=''):
     keys, values = zip(*data.items())
-    select_str = "SELECT {} FROM {} WHERE {}".format(selection, table, f' {chain_operator} '.join(f'{key}=?' for key in keys))
+    select_str = "SELECT {} FROM {} WHERE {} {}".format(selection, table, f' {chain_operator} '.join(f'{key}=?' for key in keys), suffix)
     logger.debug(f'Selecting: {select_str} with values {values}')
     return cursor.execute(select_str, values)
 
@@ -108,22 +108,31 @@ class BackupDatabase:
     def insert(self, data, table, **kwargs):
         cursor = self.connection.cursor()
         insert(data, table, cursor, **kwargs)
-        return cursor.lastrowid
+        return cursor
 
     def select(self, data, table, **kwargs):
         cursor = self.connection.cursor()
         return select(data, table, cursor, **kwargs)
 
-    def create_backup(self, path, cursor, level='full'):
+    def create_backup(self, path, level='full'):
         data = {'path': path.as_posix(),
                 'level': level,
                 'timestamp': int(datetime.timestamp(datetime.now()))
                 }
-        return self.insert(data, 'backup')
+        return self.insert(data, 'backup').lastrowid
 
     def create_partial_backup(self, parent_id, volume, **kwargs):
         kwargs.update({'parent_id': parent_id,
                        'volume': volume,
                        'timestamp': int(datetime.timestamp(datetime.now()))
                        })
-        return self.insert(kwargs, 'partial_backup')
+        return self.insert(kwargs, 'partial_backup').lastrowid
+
+    def commit(self):
+        self.connection.commit()
+
+    def close(self):
+        self.connection.close()
+
+    def __del__(self):
+        self.connection.close()

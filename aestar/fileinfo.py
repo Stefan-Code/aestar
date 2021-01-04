@@ -5,7 +5,7 @@ from multiprocessing import Process
 from threading import Thread
 from pathlib import Path
 
-from . import db
+from . import database
 
 
 def checksum(file, hash=hashlib.sha1, chunksize=4096, hex=True):
@@ -35,7 +35,7 @@ class FileInfo:
             path = path.as_posix()
         stat_result = os.stat(path)
 
-        info_dict = {f'st_{key}': int(getattr(stat_result, f'st_{key}')) for key in db.stat_fields + ['ino']}
+        info_dict = {f'st_{key}': int(getattr(stat_result, f'st_{key}')) for key in database.stat_fields + ['ino']}
         info_dict['path'] = path
         if stat.S_ISREG(stat_result.st_mode):
             info_dict['sha1'] = checksum(path, hex=False)

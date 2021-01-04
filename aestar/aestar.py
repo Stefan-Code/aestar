@@ -13,7 +13,7 @@ logger.addHandler(logging.NullHandler())
 
 
 class TapeFile:
-    def __init__(self, file, mode, bufsize=None):
+    def __init__(self, file=None, fileobj=None, mode='wb', bufsize=None):
         """
         File object that abstracts a tape drive (or any other file) and raises zero byte writes as an ENOSPC error.
         :param file: file location
@@ -21,7 +21,12 @@ class TapeFile:
         :param bufsize: explicit size of the underlying buffer
         """
         self.bufsize = bufsize
-        self.fileobj = open(file, mode=mode, buffering=bufsize)
+        if fileobj:
+            self.fileobj = fileobj
+        elif file and fileobj:
+            raise ValueError('Arguments "file" and "fileobj" are exclusive.')
+        elif file:
+            self.fileobj = open(file, mode=mode, buffering=bufsize)
 
     def close(self):
         self.fileobj.close()
@@ -83,12 +88,14 @@ class AESFile:
         # actual file we are writing to
         # turn buffering off, as we are writing buffered chunks anyways
         # note that the buffer is explicitly flushed after each write()
-        if fileobj:
-            self.fileobj = fileobj
-        elif file and fileobj:
+        if file and fileobj:
             raise ValueError('Arguments "file" and "fileobj" are exclusive.')
+        elif fileobj:
+            self.fileobj = fileobj
         elif file:
             self.fileobj = open(file, mode=mode, buffering=self.bufsize)
+        else:
+            raise ValueError('Either file or fileobj is required.')
         logger.debug(f'opened {file} with buffer size {self.bufsize} for writing AES encrypted data.')
 
     def _next_sector(self):
@@ -132,7 +139,7 @@ class AESTarFile:
     def __init__(self, file, passphrase, mode='wb', bufsize=131072, compression=None, sync=False):
         if mode != 'wb':
             raise NotImplementedError('Mode must be "wb"')
-        self.aesfile = AESFile(file, mode=mode, passphrase=passphrase, bufsize=bufsize, sync=sync, pad=True)
+        self.aesfile = AESFile(passphrase=passphrase, file=file, mode=mode, bufsize=bufsize, sync=sync, pad=True)
         self.tarfile = tarfile.open(fileobj=self.aesfile, mode=f'w|{compression if compression else ""}',
                                     bufsize=bufsize)
         self.pending_files = []
