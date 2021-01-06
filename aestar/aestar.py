@@ -13,7 +13,7 @@ logger.addHandler(logging.NullHandler())
 
 
 class TapeFile:
-    def __init__(self, file=None, fileobj=None, mode='wb', bufsize=None):
+    def __init__(self, file=None, fileobj=None, mode='wb', bufsize=-1):
         """
         File object that abstracts a tape drive (or any other file) and raises zero byte writes as an ENOSPC error.
         :param file: file location
@@ -21,12 +21,15 @@ class TapeFile:
         :param bufsize: explicit size of the underlying buffer
         """
         self.bufsize = bufsize
-        if fileobj:
-            self.fileobj = fileobj
-        elif file and fileobj:
+
+        if file and fileobj:
             raise ValueError('Arguments "file" and "fileobj" are exclusive.')
+        elif fileobj:
+            self.fileobj = fileobj
         elif file:
-            self.fileobj = open(file, mode=mode, buffering=bufsize)
+            self.fileobj = open(file, mode=mode, buffering=self.bufsize)
+        else:
+            raise ValueError('Either file or fileobj is required.')
 
     def close(self):
         self.fileobj.close()
@@ -113,6 +116,7 @@ class AESFile:
             result = self.fileobj.write(self._cipher.encrypt(write_buffer[self.SECTOR_SIZE * i: self.SECTOR_SIZE * (i + 1)]))
             self._next_sector()
         # flush the buffer explicitly to catch write errors earlier
+        # TODO: disable?
         self.fileobj.flush()
         if self.sync:
             os.fsync(self.fileobj.fileno())
