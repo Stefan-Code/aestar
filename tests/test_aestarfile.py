@@ -46,6 +46,7 @@ def test_directory_tar_untar(passphrase, passphrase_file):
     with open('aestarfile.tar', 'wb') as f:
         f.write(tar_data)
     tar_diff_result = tar_diff('aestarfile.tar')
+    print(tar_diff_result.stdout)
     assert len(tar_diff_result.stdout.rstrip().split(b'\n')) == len(files)
     assert tar_diff_result.returncode == 0
 
