@@ -140,15 +140,18 @@ class AESFile:
 
 
 class AESTarFile:
-    def __init__(self, file, passphrase, mode='wb', bufsize=131072, compression=None, sync=False):
+    def __init__(self, passphrase, file=None, fileobj=None, mode='wb', bufsize=131072, compression=None, sync=False):
         if mode != 'wb':
             raise NotImplementedError('Mode must be "wb"')
-        self.aesfile = AESFile(passphrase=passphrase, file=file, mode=mode, bufsize=bufsize, sync=sync, pad=True)
+
+        self.aesfile = AESFile(passphrase=passphrase, file=file, fileobj=fileobj, mode=mode, bufsize=bufsize, sync=sync, pad=True)
         self.tarfile = tarfile.open(fileobj=self.aesfile, mode=f'w|{compression if compression else ""}',
                                     bufsize=bufsize)
         self.pending_files = []
         self.num_files = 0  # includes directories and special files
         self.previous_pending_length = 0
+        self.closed = False
+        # TODO: force PAX as default format independent of python version
 
     def add(self, name, arcname=None):
         # always treat a file as pending after it has been added, therefore call purge first
@@ -206,6 +209,7 @@ class AESTarFile:
         # you could also call purge_pending twice because in theory writing the last 1024 zero bytes
         # as end of archive may fail, though all file contents have been written
         # self.purge_pending()
+        self.closed = True
         self.tarfile.close()
         self.aesfile.close()
         self.purge_pending()
@@ -223,6 +227,7 @@ class AESTarFile:
         """
         self.tarfile.closed = True
         self.tarfile.fileobj.closed = True
+        self.closed = True
         self.aesfile.fileobj.close()
 
     def __enter__(self):

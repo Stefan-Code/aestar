@@ -4,6 +4,8 @@ import os
 
 class FakeFile:
     def __init__(self, size=-1, failure_mode='ENOSPC'):
+        if not failure_mode in ('ENOSPC', 'WRITE0'):
+            raise ValueError(f'Unknown failure mode "{failure_mode}"')
         self.buffer = []
         self.closed = False
         self.size = size
@@ -28,3 +30,6 @@ class FakeFile:
             self.buffer.append(buffer)
             self.written += len(buffer)
             return len(buffer)
+
+    def flush(self):
+        pass
