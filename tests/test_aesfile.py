@@ -37,36 +37,36 @@ def plaintext(plaintext_file):
 
 
 @pytest.fixture()
-def aesfile(passphrase):
-    return aestar.AESFile(passphrase=passphrase, file='aesfile.tmp')
+def aesfile(passphrase, tmp_path):
+    return aestar.AESFile(passphrase=passphrase, file=tmp_path / 'aesfile.tmp')
 
 
 
-def test_short_password_warning(short_passphrase):
+def test_short_password_warning(short_passphrase, tmp_path):
     with pytest.warns(Warning):
-        aesfile = aestar.AESFile(short_passphrase, file='aesfile.tmp')
+        aesfile = aestar.AESFile(short_passphrase, file=tmp_path / 'aesfile.tmp')
 
 
-def test_encrypt_decrypt_aespipe(aesfile, passphrase_file, plaintext):
+def test_encrypt_decrypt_aespipe(aesfile, passphrase_file, plaintext, tmp_path):
     aesfile.write(plaintext)
     aesfile.close()
-    with open('aesfile.tmp', 'rb') as f:
+    with open(tmp_path / 'aesfile.tmp', 'rb') as f:
         ciphertext_bytes = f.read()
     decrypted = aespipe_decrypt(ciphertext_bytes, passphrase_file)
     assert plaintext == decrypted
 
 
-def test_fileobj(passphrase):
-    with open('aesfile_obj.tmp', 'wb') as f:
+def test_fileobj(passphrase, tmp_path):
+    with open(tmp_path / 'aesfile_obj.tmp', 'wb') as f:
         aesfile = aestar.AESFile(passphrase, fileobj=f)
         aesfile.write(b'123')
         aesfile.close()
 
 
-def test_both_file_and_fileobj():
+def test_both_file_and_fileobj(tmp_path):
     with pytest.raises(ValueError):
-        with open('aesfile2.tmp', 'wb') as f:
-            aestar.AESFile(passphrase=b'12345678901234567890', file='aesfile.tmp', fileobj=f)
+        with open(tmp_path / 'aesfile2.tmp', 'wb') as f:
+            aestar.AESFile(passphrase=b'12345678901234567890', file=tmp_path / 'aesfile.tmp', fileobj=f)
 
 
 def test_missing_file_argument():

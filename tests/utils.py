@@ -15,3 +15,8 @@ def untar(tarfile, directory=None):
     dir_change = ['-C', directory] if directory else []
     result = subprocess.run(['tar', '-xvf', tarfile] + dir_change, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     return result
+
+
+def diff(a, b):
+    result = subprocess.run(['diff', a, b], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return result
