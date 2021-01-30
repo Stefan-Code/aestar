@@ -31,6 +31,8 @@ class FileInfo:
 
     @classmethod
     def from_file(cls, path):
+        # TODO: option to enable/disable checksum calculation
+        # this would be useful for quick check by mtime only
         if not isinstance(path, str):
             path = path.as_posix()
         stat_result = os.stat(path)
@@ -63,7 +65,7 @@ class FileProcessor(Process):
         self.queue.put(None)
 
 
-class FileFilter(Thread):
+class FileFilter(Process):
     def __init__(self, queue_in, queue_out, callback=lambda x: False):
         super().__init__()
         self.name = f'FileFilter'
@@ -74,8 +76,8 @@ class FileFilter(Thread):
 
     def run(self):
         for item in iter(self.queue_in.get, None):
-            if item is None:
+            if self.callback(item):
                 self.queue_out.put(item)
-                return
-            if not self.callback(item):
-                self.queue_out.put(item)
+
+        # put back the stolen sentinel value before exiting
+        self.queue_out.put(None)

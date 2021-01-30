@@ -271,3 +271,45 @@ class PendingQueue:
 
     def __len__(self):
         return self.qsize()
+
+
+def save_to_archive(pending_queue, archive, pre_add_callback=None, commit_callback=None):
+    for item in iter(pending_queue.get, None):
+        # insert the new file into the database
+        # if it exists, update the record, because e.g. the mtime might have been changed
+        logger.debug(f'Adding {item} to archive')
+        prev_committed = archive.num_committed
+        if pre_add_callback:
+            # if the return value evaluates to True, the current item is skipped
+            if pre_add_callback(item):
+                logger.debug(f'Skipping {item} because of insert callback result.')
+                # skip current item
+                continue
+        try:
+            archive.add(item.info_dict['path'])
+        except OSError as e:
+            if e.errno != errno.ENOSPC:
+                logger.error(f'Could not write {item}, got OSError {e.errno}.')
+                raise e
+            if pending_queue.restore:
+                logger.critical(f'FATAL EOT while restoring file queue at item {item}')
+                raise Exception('FATAL EOT while restoring the file queue.')
+            logger.info(f'EOT, Could not add {item}. {len(archive.pending_files)} file(s) were still pending and are not written.')
+            archive.close_early()
+            pending_queue.restore = True
+            return 1
+        except Exception as e:
+            # set the Queue to restore state, then let the caller handle the exception
+            pending_queue.restore = True
+            raise e
+        finally:
+            # this is executed even when we return from the function
+            diff = archive.num_committed - prev_committed
+            # insert successful files to sqlite
+            items = pending_queue.confirm(diff)
+            # print(len(items))
+            if commit_callback:
+                for committed in items:
+                    commit_callback(committed)
+    archive.close()
+    return 0
